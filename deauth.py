@@ -93,7 +93,7 @@ def deauthenticate_client(user_choice, eligible_hosts, bssid):
 def main():
 
     iface = get_iface()
-    
+
     bssid = get_bssid(iface)
 
     network_id = get_network_id()
@@ -103,7 +103,7 @@ def main():
     WirelessLAN = WirelessLocalAreaNetwork(network_id, bssid, get_elible_hosts(nm_scan, get_local_ip(), get_ap_ip()))
 
 
-    # enable_monitor_mode(get_iface())
+    # enable_monitor_mode(iface)
 
 
     WirelessLAN.display_eligible_hosts()
